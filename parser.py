@@ -7,13 +7,17 @@ from parsel import Selector
 
 start_t = timeit.default_timer()
 
-DOMAIN = 'https://auto.ria.com/'
+DATA = []
+DOMAIN = 'https://auto.ria.com/newauto/'
+START_URLS = ('https://auto.ria.com/newauto/search/?page=1&show_in_search=1&markaId=55&size=100',
+              'https://auto.ria.com/newauto/search/?page=1&show_in_search=1&markaId=9&size=100',
+              'https://auto.ria.com/newauto/search/?page=1&show_in_search=1&markaId=24&size=100')
 
-URLS = ('https://auto.ria.com/newauto/marka-hyundai/',
-         'https://auto.ria.com/newauto/marka-nissan/',
-)
 
-
+async def main():
+    async with aiohttp.ClientSession() as session:
+        task = [get_pages(session, url) for url in START_URLS]
+        await asyncio.wait(task)
 
 
 async def get_pages(session, url):
@@ -21,50 +25,22 @@ async def get_pages(session, url):
         selector = Selector(text=await response.text())
         task = [extract_card(session, urljoin(DOMAIN, link)) for link in selector.xpath("//h3/a/@href").extract()]
         await asyncio.wait(task)
-        
-        # //div[@id='marks-block']/a[contains(.,'yundai')]
-# URLS = ('11111', '33333', '55555')
-
-# async def start(func, list_):
-#     task = [func(x) for x in list_]    
-#     await asyncio.wait(task)
-
-#     # for x in range(1,6):
-#     #     asyncio.ensure_future(say_after(1,x))
-
-# async def extract_links(url):
-#     # get_link
-#     await asyncio.sleep(0.5)
-#     print(url)
-#     task = [extract_card(x) for x in (url)]
-#     await asyncio.wait(task)
 
 
 async def extract_card(session, url):
-    await asyncio.sleep(4)
     async with session.get(url) as response:
         selector = Selector(text=await response.text())
-        print(selector.xpath("//section/div[@class='price_value']/text()").extract_first())
-
-
-
-# asyncio.run(start(extract_links, URLS))
-
-
-
-
-
-async def main():   
-    async with aiohttp.ClientSession() as session:
-        task = [get_pages(session, url) for url in URLS]
-        await asyncio.wait(task)
-
+        price = selector.xpath("//section/div[@class='price_value']/text()").extract_first()
+        name = selector.xpath("//h1/text()").extract_first()
+        DATA.append((price, name))
 
 if __name__ == '__main__':
     loop = asyncio.get_event_loop()
     loop.run_until_complete(main())
 
-
 stop = timeit.default_timer()
-# print(len(d['data']), d['data'])
-print('Time: ', stop - start_t) 
+with open('Autoria.csv', 'w') as f:
+    for line in DATA:
+        f.write(f'{line}\n')
+
+print('Time: ', stop - start_t)
