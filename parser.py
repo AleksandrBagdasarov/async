@@ -7,21 +7,49 @@ from parsel import Selector
 
 start_t = timeit.default_timer()
 
-DOMAIN = 'https://auto.ria.com/'
+DOMAIN = 'https://www.octoparse.com/'
 
-URLS = ('https://auto.ria.com/newauto/marka-hyundai/',
-         'https://auto.ria.com/newauto/marka-nissan/',
-)
+URLS = ('https://www.octoparse.com/blog',)
 
 
+async def main():   
+    async with aiohttp.ClientSession() as session:
+        task = [get_pages(session, url) for url in URLS]
+        await asyncio.wait(task)
 
 
 async def get_pages(session, url):
+    print(url)
     async with session.get(url) as response:
         selector = Selector(text=await response.text())
-        task = [extract_card(session, urljoin(DOMAIN, link)) for link in selector.xpath("//h3/a/@href").extract()]
+        task = []
+        for link in [selector.xpath("//a[@class='full pc_show']/@href").extract_first()]:
+            print(link)
+            task.append(extract_card(session, urljoin(DOMAIN, link)))
+
         await asyncio.wait(task)
         
+        if task:
+            print(task)
+
+
+
+async def extract_card(session, url):
+    # await asyncio.sleep(4)
+    async with session.get(url) as response:
+        selector = Selector(text=await response.text())
+        text = text_cleaner(selector.xpath("//div[@class='article']/div[@class='content']//text()").extract())
+        with open('text.txt', 'a') as f:
+            f.write(text)
+
+
+def text_cleaner(full_text: list) -> str:
+    clean_text = [clean(text) for text in full_text if clean(text)]
+    return clean('\n***\n'.join(clean_text))
+
+def clean(text: str) -> str:
+    return text.replace('***', '').replace('  ', '').replace('\t', '').replace('\n', '')
+
         # //div[@id='marks-block']/a[contains(.,'yundai')]
 # URLS = ('11111', '33333', '55555')
 
@@ -40,12 +68,6 @@ async def get_pages(session, url):
 #     await asyncio.wait(task)
 
 
-async def extract_card(session, url):
-    await asyncio.sleep(4)
-    async with session.get(url) as response:
-        selector = Selector(text=await response.text())
-        print(selector.xpath("//section/div[@class='price_value']/text()").extract_first())
-
 
 
 # asyncio.run(start(extract_links, URLS))
@@ -54,10 +76,7 @@ async def extract_card(session, url):
 
 
 
-async def main():   
-    async with aiohttp.ClientSession() as session:
-        task = [get_pages(session, url) for url in URLS]
-        await asyncio.wait(task)
+
 
 
 if __name__ == '__main__':
